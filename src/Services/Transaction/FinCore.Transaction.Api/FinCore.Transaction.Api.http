@@ -1,0 +1,6 @@
+@FinCore.Transaction.Api_HostAddress = http://localhost:5109
+
+GET {{FinCore.Transaction.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

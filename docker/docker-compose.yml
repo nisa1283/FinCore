@@ -1,0 +1,30 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fincore-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "FinCore_Pass123!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+
+  redis:
+    image: redis:7-alpine
+    container_name: fincore-redis
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fincore-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: fincore
+      RABBITMQ_DEFAULT_PASS: fincore_pass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+volumes:
+  sqlserver-data:
