@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\FinCore.Transaction.Application\FinCore.Transaction.Application.csproj" />
     <ProjectReference Include="..\FinCore.Transaction.Infrastructure\FinCore.Transaction.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\FinCore.BuildingBlocks\FinCore.BuildingBlocks.csproj" />
