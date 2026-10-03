@@ -30,3 +30,7 @@ public class ForbiddenException : AppException
 {
     public ForbiddenException(string message) : base(message, 403) { }
 }
+public class ServiceUnavailableException : AppException
+{
+    public ServiceUnavailableException(string message) : base(message, 503) { }
+}
