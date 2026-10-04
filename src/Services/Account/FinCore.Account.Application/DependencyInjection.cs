@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssemblyContaining<IAccountService>();
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IFundsTransferService, FundsTransferService>();
+        services.AddScoped<IAdminAccountService, AdminAccountService>();
         return services;
     }
 }
