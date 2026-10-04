@@ -25,6 +25,22 @@ public static class JwtExtensions
             .AddJwtBearer(options =>
             {
                 options.MapInboundClaims = false; // "sub", "role" gibi isimler olduğu gibi kalsın
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+
+                        // Sadece SignalR yollarında query string'den token kabul et
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
+                };
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
