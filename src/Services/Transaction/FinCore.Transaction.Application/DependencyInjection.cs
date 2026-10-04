@@ -10,6 +10,7 @@ public static class DependencyInjection
     {
         services.AddValidatorsFromAssemblyContaining<ITransactionService>();
         services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<ITransactionQueryService, TransactionQueryService>();
         return services;
     }
 }

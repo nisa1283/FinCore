@@ -5,6 +5,7 @@ using FinCore.Transaction.Application.DTOs;
 using FinCore.Transaction.Domain.Entities;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using FinCore.Transaction.Application.Risk;
 
 namespace FinCore.Transaction.Application.Services;
 
@@ -48,26 +49,34 @@ public class TransactionService : ITransactionService
             return ToResponse(existing, isDuplicate: true);
         }
 
-        // 3) İşlemi "Pending" olarak kaydet
-        var transaction = new BankTransaction
-        {
-            IdempotencyKey = idempotencyKey,
-            SenderUserId = userId,
-            SourceAccountId = request.SourceAccountId,
-            TargetAccountNumber = request.TargetAccountNumber.Trim().ToUpperInvariant(),
-            Amount = request.Amount,
-            Description = request.Description?.Trim(),
-            Category = string.IsNullOrWhiteSpace(request.Category) ? "General" : request.Category
-        };
+        // 3) Risk skorunu hesapla ve işlemi "Pending" olarak kaydet
+        var targetNumber = request.TargetAccountNumber.Trim().ToUpperInvariant();
+        BankTransaction transaction;
 
         try
         {
+            var risk = await EvaluateRiskAsync(userId, request.Amount, targetNumber);
+
+            transaction = new BankTransaction
+            {
+                IdempotencyKey = idempotencyKey,
+                SenderUserId = userId,
+                SourceAccountId = request.SourceAccountId,
+                TargetAccountNumber = targetNumber,
+                Amount = request.Amount,
+                Description = request.Description?.Trim(),
+                Category = string.IsNullOrWhiteSpace(request.Category) ? "General" : request.Category,
+                RiskScore = risk.Score,
+                RiskReasons = risk.Reasons.Count > 0 ? string.Join(",", risk.Reasons) : null,
+                IsSuspicious = risk.IsSuspicious
+            };
+
             _db.Transactions.Add(transaction);
             await _db.SaveChangesAsync();
         }
         catch
         {
-            // Kayıt bile atılamadıysa anahtarı serbest bırak, kullanıcı tekrar deneyebilsin
+            // Kayıt atılamadıysa anahtarı serbest bırak, kullanıcı tekrar deneyebilsin
             await _idempotency.ReleaseAsync(userId, idempotencyKey);
             throw;
         }
@@ -101,6 +110,20 @@ public class TransactionService : ITransactionService
             await _db.SaveChangesAsync();
             throw;
         }
+    }
+    private async Task<RiskResult> EvaluateRiskAsync(Guid userId, decimal amount, string targetAccountNumber)
+    {
+        var since = DateTime.UtcNow.AddMinutes(-RiskCalculator.VelocityWindowMinutes);
+
+        var recentCount = await _db.Transactions
+            .CountAsync(t => t.SenderUserId == userId && t.CreatedAt >= since);
+
+        var knownReceiver = await _db.Transactions.AnyAsync(t =>
+            t.SenderUserId == userId &&
+            t.TargetAccountNumber == targetAccountNumber &&
+            t.Status == TransactionStatus.Completed);
+
+        return RiskCalculator.Calculate(new RiskContext(amount, recentCount, IsNewReceiver: !knownReceiver));
     }
 
     public async Task<TransferResponse> GetByIdAsync(Guid userId, Guid transactionId)

@@ -32,6 +32,8 @@ public class TransactionDbContext : DbContext, ITransactionDbContext
             e.Property(x => x.Category).HasMaxLength(50).IsRequired();
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.FailureReason).HasMaxLength(300);
+            e.Property(x => x.RiskReasons).HasMaxLength(200);
+            e.HasIndex(x => x.IsSuspicious);
         });
     }
 }
