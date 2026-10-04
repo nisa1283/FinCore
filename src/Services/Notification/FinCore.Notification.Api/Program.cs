@@ -12,6 +12,7 @@ builder.Services.AddInfrastructure(
     builder.Configuration.GetConnectionString("NotificationDb")!,
     builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddFinCoreCors(builder.Configuration);
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<INotificationPusher, SignalRNotificationPusher>();
@@ -23,6 +24,7 @@ builder.Services.AddSwaggerWithJwt("FinCore Notification API");
 var app = builder.Build();
 
 app.UseGlobalExceptionHandler();
+app.UseCors(CorsExtensions.PolicyName);
 
 if (app.Environment.IsDevelopment())
 {

@@ -14,6 +14,7 @@ builder.Services.AddInfrastructure(
         ?? throw new InvalidOperationException("InternalApi:Key bulunamadý. 'dotnet user-secrets' ile ayarla."),
     builder.Configuration.GetConnectionString("Redis")!);
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddFinCoreCors(builder.Configuration);
 builder.Services.AddRabbitMqPublisher(builder.Configuration);
 
 builder.Services.AddControllers();
@@ -23,6 +24,7 @@ builder.Services.AddSwaggerWithJwt("FinCore Transaction API");
 var app = builder.Build();
 
 app.UseGlobalExceptionHandler();
+app.UseCors(CorsExtensions.PolicyName);
 
 if (app.Environment.IsDevelopment())
 {
