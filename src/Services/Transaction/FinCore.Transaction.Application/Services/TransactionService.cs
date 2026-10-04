@@ -6,6 +6,9 @@ using FinCore.Transaction.Domain.Entities;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using FinCore.Transaction.Application.Risk;
+using FinCore.BuildingBlocks.Events;
+using FinCore.BuildingBlocks.Messaging;
+using Microsoft.Extensions.Logging;
 
 namespace FinCore.Transaction.Application.Services;
 
@@ -15,17 +18,23 @@ public class TransactionService : ITransactionService
     private readonly IAccountClient _accountClient;
     private readonly IIdempotencyService _idempotency;
     private readonly IValidator<TransferRequest> _validator;
+    private readonly IEventPublisher _publisher;
+    private readonly ILogger<TransactionService> _logger;
 
     public TransactionService(
         ITransactionDbContext db,
         IAccountClient accountClient,
         IIdempotencyService idempotency,
-        IValidator<TransferRequest> validator)
+        IValidator<TransferRequest> validator,
+        IEventPublisher publisher,
+        ILogger<TransactionService> logger)
     {
         _db = db;
         _accountClient = accountClient;
         _idempotency = idempotency;
         _validator = validator;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task<TransferResponse> TransferAsync(Guid userId, string idempotencyKey, TransferRequest request)
@@ -100,6 +109,7 @@ public class TransactionService : ITransactionService
             transaction.CompletedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
+            await PublishCompletedEventAsync(transaction);
             return ToResponse(transaction, isDuplicate: false);
         }
         catch (AppException ex)
@@ -124,6 +134,26 @@ public class TransactionService : ITransactionService
             t.Status == TransactionStatus.Completed);
 
         return RiskCalculator.Calculate(new RiskContext(amount, recentCount, IsNewReceiver: !knownReceiver));
+    }
+    private async Task PublishCompletedEventAsync(BankTransaction t)
+    {
+        try
+        {
+            await _publisher.PublishAsync(
+                new TransactionCompletedEvent(
+                    t.Id,
+                    t.SenderUserId,
+                    t.ReceiverUserId ?? Guid.Empty,
+                    t.Amount,
+                    t.Currency ?? "TRY",
+                    t.Description ?? string.Empty),
+                MessagingConstants.TransactionCompletedRoutingKey);
+        }
+        catch (Exception ex)
+        {
+            // Para zaten taşındı. RabbitMQ'ya ulaşılamadı diye kullanıcıya hata dönmeyiz, sadece logluyoruz.
+            _logger.LogWarning(ex, "Could not publish TransactionCompletedEvent for transaction {TransactionId}", t.Id);
+        }
     }
 
     public async Task<TransferResponse> GetByIdAsync(Guid userId, Guid transactionId)

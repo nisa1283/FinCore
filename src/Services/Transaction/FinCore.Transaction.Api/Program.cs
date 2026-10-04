@@ -2,6 +2,7 @@ using FinCore.BuildingBlocks.Middleware;
 using FinCore.BuildingBlocks.Security;
 using FinCore.Transaction.Application;
 using FinCore.Transaction.Infrastructure;
+using FinCore.BuildingBlocks.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,7 @@ builder.Services.AddInfrastructure(
         ?? throw new InvalidOperationException("InternalApi:Key bulunamadý. 'dotnet user-secrets' ile ayarla."),
     builder.Configuration.GetConnectionString("Redis")!);
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddRabbitMqPublisher(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
