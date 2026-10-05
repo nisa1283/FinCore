@@ -25,4 +25,10 @@ public class TransactionHistoryController : ControllerBase
         var result = await _queryService.GetMyTransactionsAsync(User.GetUserId(), query);
         return Ok(ApiResponse<PagedResult<TransactionHistoryItem>>.Ok(result));
     }
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary([FromQuery] string currency = "TRY", [FromQuery] int months = 6)
+    {
+        var result = await _queryService.GetSummaryAsync(User.GetUserId(), currency, months);
+        return Ok(ApiResponse<TransactionSummaryResponse>.Ok(result));
+    }
 }

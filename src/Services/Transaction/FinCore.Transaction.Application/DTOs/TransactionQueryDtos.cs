@@ -14,6 +14,7 @@ public class TransactionQuery
     public decimal? MaxAmount { get; set; }
     public string? Search { get; set; }        // açıklamada arar
     public bool SuspiciousOnly { get; set; }   // sadece admin
+    public Guid? AccountId { get; set; }       // hesap detay sayfası için
 }
 
 public record TransactionHistoryItem(
@@ -53,3 +54,14 @@ public record TransactionStatsResponse(
     int FailedCount,
     int SuspiciousCount,
     List<CurrencyVolume> VolumeByCurrency);
+
+public record MonthlyFlow(string Month, decimal Income, decimal Expense);
+
+public record CategorySpend(string Category, decimal Total);
+
+public record TransactionSummaryResponse(
+    string Currency,
+    decimal TotalIncome,
+    decimal TotalExpense,
+    List<MonthlyFlow> Months,
+    List<CategorySpend> Categories);

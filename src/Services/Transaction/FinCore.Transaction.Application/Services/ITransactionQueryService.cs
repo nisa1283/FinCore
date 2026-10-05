@@ -8,4 +8,5 @@ public interface ITransactionQueryService
     Task<PagedResult<TransactionHistoryItem>> GetMyTransactionsAsync(Guid userId, TransactionQuery query);
     Task<PagedResult<AdminTransactionItem>> GetAdminTransactionsAsync(TransactionQuery query);
     Task<TransactionStatsResponse> GetStatsAsync();
+    Task<TransactionSummaryResponse> GetSummaryAsync(Guid userId, string currency, int months);
 }

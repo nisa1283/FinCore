@@ -4,6 +4,7 @@ using FinCore.Transaction.Application.Abstractions;
 using FinCore.Transaction.Application.DTOs;
 using FinCore.Transaction.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace FinCore.Transaction.Application.Services;
 
@@ -94,6 +95,52 @@ public class TransactionQueryService : ITransactionQueryService
             total, completed, failed, suspicious,
             volumes.Select(v => new CurrencyVolume(v.Currency, v.Total)).ToList());
     }
+    public async Task<TransactionSummaryResponse> GetSummaryAsync(Guid userId, string currency, int months)
+    {
+        currency = (currency ?? string.Empty).Trim().ToUpperInvariant();
+        if (currency.Length != 3)
+            throw new BusinessRuleException("Currency must be a 3-letter code such as TRY.");
+
+        months = Math.Clamp(months, 1, 12);
+
+        // İçinde bulunduğumuz ay dahil, geriye doğru "months" kadar ayın ilk günü
+        var now = DateTime.UtcNow;
+        var firstMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-(months - 1));
+
+        // Sadece tamamlanmış işlemler. Kendi hesapları arasındaki transferler gelir/gider sayılmaz.
+        var rows = await _db.Transactions.AsNoTracking()
+            .Where(t => t.Status == TransactionStatus.Completed
+                     && t.Currency == currency
+                     && t.CreatedAt >= firstMonth
+                     && (t.SenderUserId == userId || t.ReceiverUserId == userId)
+                     && t.ReceiverUserId != t.SenderUserId)
+            .Select(t => new { t.CreatedAt, t.Amount, t.Category, Outgoing = t.SenderUserId == userId })
+            .ToListAsync();
+
+        var monthly = Enumerable.Range(0, months)
+            .Select(i => firstMonth.AddMonths(i))
+            .Select(start => new MonthlyFlow(
+                start.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                rows.Where(r => r.CreatedAt.Year == start.Year && r.CreatedAt.Month == start.Month && !r.Outgoing)
+                    .Sum(r => r.Amount),
+                rows.Where(r => r.CreatedAt.Year == start.Year && r.CreatedAt.Month == start.Month && r.Outgoing)
+                    .Sum(r => r.Amount)))
+            .ToList();
+
+        var categories = rows
+            .Where(r => r.Outgoing)
+            .GroupBy(r => r.Category)
+            .Select(g => new CategorySpend(g.Key, g.Sum(r => r.Amount)))
+            .OrderByDescending(c => c.Total)
+            .ToList();
+
+        return new TransactionSummaryResponse(
+            currency,
+            monthly.Sum(m => m.Income),
+            monthly.Sum(m => m.Expense),
+            monthly,
+            categories);
+    }
 
     private static IQueryable<BankTransaction> ApplyFilters(IQueryable<BankTransaction> query, TransactionQuery q)
     {
@@ -133,6 +180,11 @@ public class TransactionQueryService : ITransactionQueryService
         {
             var search = q.Search.Trim();
             query = query.Where(t => t.Description != null && t.Description.Contains(search));
+        }
+        if (q.AccountId.HasValue)
+        {
+            var accountId = q.AccountId.Value;
+            query = query.Where(t => t.SourceAccountId == accountId || t.TargetAccountId == accountId);
         }
 
         return query;
