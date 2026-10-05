@@ -7,6 +7,11 @@ import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { AccountDetailPage } from './pages/AccountDetailPage'
+import { AccountsPage } from './pages/AccountsPage'
+import { NotificationsPage } from './pages/NotificationsPage'
+import { TransactionsPage } from './pages/TransactionsPage'
+import { TransferPage } from './pages/TransferPage'
 
 export default function App() {
   return (
@@ -23,10 +28,11 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/accounts" element={<ComingSoonPage title="Accounts" />} />
-          <Route path="/transfer" element={<ComingSoonPage title="Transfer" />} />
-          <Route path="/transactions" element={<ComingSoonPage title="Transactions" />} />
-          <Route path="/notifications" element={<ComingSoonPage title="Notifications" />} />
+          <Route path="/accounts" element={<AccountsPage />} />
+          <Route path="/accounts/:id" element={<AccountDetailPage />} />
+          <Route path="/transfer" element={<TransferPage />} />
+          <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ComingSoonPage title="Profile" />} />
 
           {/* Sadece Admin */}
