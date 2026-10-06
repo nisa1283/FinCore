@@ -1,0 +1,14 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG SERVICE
+WORKDIR /src
+COPY . .
+RUN dotnet publish src/Services/${SERVICE}/FinCore.${SERVICE}.Api/FinCore.${SERVICE}.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+ARG SERVICE
+WORKDIR /app
+COPY --from=build /app/publish .
+ENV ASPNETCORE_URLS=http://+:8080
+ENV SERVICE_DLL=FinCore.${SERVICE}.Api.dll
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "exec dotnet $SERVICE_DLL"]

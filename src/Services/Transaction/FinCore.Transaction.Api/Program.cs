@@ -3,8 +3,13 @@ using FinCore.BuildingBlocks.Security;
 using FinCore.Transaction.Application;
 using FinCore.Transaction.Infrastructure;
 using FinCore.BuildingBlocks.Messaging;
+using FinCore.Transaction.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using FinCore.BuildingBlocks.Observability;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddFinCoreLogging("Transaction");
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(
@@ -22,7 +27,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwt("FinCore Transaction API");
 
 var app = builder.Build();
-
+app.UseSerilogRequestLogging();
 app.UseGlobalExceptionHandler();
 app.UseCors(CorsExtensions.PolicyName);
 
@@ -38,4 +43,9 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { service = "Transaction", status = "healthy" }));
 app.MapControllers();
 
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<TransactionDbContext>().Database.MigrateAsync();
+}
 app.Run();

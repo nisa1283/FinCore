@@ -1,30 +1,179 @@
+name: fincore
+
+# Settings shared by the four .NET services
+x-service-env: &service-env
+  ASPNETCORE_ENVIRONMENT: Development
+  Jwt__SecretKey: ${JWT_SECRET}
+  Cors__AllowedOrigins__0: http://localhost:5173
+  Database__MigrateOnStartup: "true"
+  Elasticsearch__Url: ${ELASTICSEARCH_URL:-}
+
 services:
+  # ---------- infrastructure ----------
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: fincore-sql
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "FinCore_Pass123!"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
     ports:
       - "1433:1433"
     volumes:
       - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
     container_name: fincore-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3-management
     container_name: fincore-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: fincore
-      RABBITMQ_DEFAULT_PASS: fincore_pass
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
+
+  # ---------- optional logging stack (docker compose --profile logging up) ----------
+  elasticsearch:
+    profiles: ["logging"]
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.24
+    container_name: fincore-elasticsearch
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+
+  kibana:
+    profiles: ["logging"]
+    image: docker.elastic.co/kibana/kibana:7.17.24
+    container_name: fincore-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  # ---------- backend services ----------
+  auth-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE: Auth
+    container_name: fincore-auth
+    environment:
+      <<: *service-env
+      ConnectionStrings__AuthDb: "Server=sqlserver,1433;Database=FinCoreAuthDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    ports:
+      - "5001:8080"
+
+  account-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE: Account
+    container_name: fincore-account
+    environment:
+      <<: *service-env
+      ConnectionStrings__AccountDb: "Server=sqlserver,1433;Database=FinCoreAccountDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+      InternalApi__Key: ${INTERNAL_API_KEY}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    ports:
+      - "5002:8080"
+
+  transaction-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE: Transaction
+    container_name: fincore-transaction
+    environment:
+      <<: *service-env
+      ConnectionStrings__TransactionDb: "Server=sqlserver,1433;Database=FinCoreTransactionDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__Redis: "redis:6379,abortConnect=false"
+      Services__AccountApi: http://account-service:8080
+      InternalApi__Key: ${INTERNAL_API_KEY}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__UserName: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASS}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      account-service:
+        condition: service_started
+    ports:
+      - "5003:8080"
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE: Notification
+    container_name: fincore-notification
+    environment:
+      <<: *service-env
+      ConnectionStrings__NotificationDb: "Server=sqlserver,1433;Database=FinCoreNotificationDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+      RabbitMq__Host: rabbitmq
+      RabbitMq__UserName: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASS}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "5004:8080"
+
+  # ---------- frontend ----------
+  frontend:
+    build:
+      context: ../frontend/fincore-web
+    container_name: fincore-web
+    depends_on:
+      - auth-service
+      - account-service
+      - transaction-service
+      - notification-service
+    ports:
+      - "5173:80"
 
 volumes:
   sqlserver-data:
+  elasticsearch-data:

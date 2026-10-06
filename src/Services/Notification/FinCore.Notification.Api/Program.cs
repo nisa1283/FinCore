@@ -4,8 +4,13 @@ using FinCore.Notification.Api.Hubs;
 using FinCore.Notification.Application;
 using FinCore.Notification.Application.Abstractions;
 using FinCore.Notification.Infrastructure;
+using FinCore.Notification.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using FinCore.BuildingBlocks.Observability;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddFinCoreLogging("Notification");
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(
@@ -22,7 +27,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwt("FinCore Notification API");
 
 var app = builder.Build();
-
+app.UseSerilogRequestLogging();
 app.UseGlobalExceptionHandler();
 app.UseCors(CorsExtensions.PolicyName);
 
@@ -40,5 +45,10 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { service = "Notification", status = "healthy" }));
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<NotificationDbContext>().Database.MigrateAsync();
+}
 
 app.Run();
