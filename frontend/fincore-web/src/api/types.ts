@@ -120,3 +120,54 @@ export interface AppNotification {
   isRead: boolean
   createdAt: string
 }
+export interface AdminUserItem {
+  id: string
+  email: string
+  fullName: string
+  role: string
+  isActive: boolean
+  isLocked: boolean
+  createdAt: string
+}
+
+export interface AdminAccountItem {
+  id: string
+  userId: string
+  accountNumber: string
+  name: string
+  currency: string
+  balance: number
+  status: 'Active' | 'Frozen'
+  createdAt: string
+}
+
+export interface AdminTransactionItem {
+  id: string
+  date: string
+  senderUserId: string
+  receiverUserId: string | null
+  sourceAccountNumber: string | null
+  targetAccountNumber: string
+  amount: number
+  currency: string | null
+  category: string
+  description: string | null
+  status: TransactionStatus
+  failureReason: string | null
+  riskScore: number
+  riskReasons: string | null
+  isSuspicious: boolean
+}
+
+export interface CurrencyVolume {
+  currency: string
+  total: number
+}
+
+export interface TransactionStats {
+  totalCount: number
+  completedCount: number
+  failedCount: number
+  suspiciousCount: number
+  volumeByCurrency: CurrencyVolume[]
+}

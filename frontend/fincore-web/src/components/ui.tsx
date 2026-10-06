@@ -24,6 +24,8 @@ const badgeStyles: Record<string, string> = {
     Pending: 'bg-amber-50 text-amber-700 ring-amber-600/20',
     Failed: 'bg-rose-50 text-rose-700 ring-rose-600/20',
     Frozen: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+    Inactive: 'bg-rose-50 text-rose-700 ring-rose-600/20',
+    Locked: 'bg-amber-50 text-amber-700 ring-amber-600/20',
 }
 
 export function StatusBadge({ status }: { status: string }) {

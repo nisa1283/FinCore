@@ -24,4 +24,12 @@ export const authApi = {
     async logout(refreshToken: string) {
         await authClient.post('/api/auth/logout', { refreshToken })
     },
+    async updateProfile(fullName: string) {
+        const response = await authClient.put<ApiResponse<UserProfile>>('/api/users/me', { fullName })
+        return response.data.data
+    },
+
+    async changePassword(currentPassword: string, newPassword: string) {
+        await authClient.post('/api/auth/change-password', { currentPassword, newPassword })
+    },
 }

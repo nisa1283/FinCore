@@ -40,6 +40,7 @@ const userNav: NavItem[] = [
 const adminNav: NavItem[] = [
     { to: '/admin', label: 'Overview', icon: ShieldCheck },
     { to: '/admin/customers', label: 'Customers', icon: Users },
+    { to: '/admin/accounts', label: 'All Accounts', icon: Wallet },
     { to: '/admin/transactions', label: 'All Transactions', icon: ListChecks },
     { to: '/admin/suspicious', label: 'Suspicious', icon: Flag },
 ]
